@@ -379,6 +379,7 @@ export class Token {
    * @param freezeAuthority Optional account or multisig that can freeze token accounts
    * @param decimals Location of the decimal place
    * @param programId Optional token programId, uses the system programId by default
+   * @param mintPubkey Optional pubkey to be used for the mint
    * @return Token object for the newly minted token
    */
   static async createMint(
@@ -388,14 +389,11 @@ export class Token {
     freezeAuthority: PublicKey | null,
     decimals: number,
     programId: PublicKey,
+    mintPubkey: PublicKey | null,
   ): Promise<Token> {
     const mintAccount = Keypair.generate();
-    const token = new Token(
-      connection,
-      mintAccount.publicKey,
-      programId,
-      payer,
-    );
+    const mintAccountPubkey = mintPubkey || mintAccount.publicKey;
+    const token = new Token(connection, mintAccountPubkey, programId, payer);
 
     // Allocate memory for the account
     const balanceNeeded = await Token.getMinBalanceRentForExemptMint(
@@ -406,7 +404,7 @@ export class Token {
     transaction.add(
       SystemProgram.createAccount({
         fromPubkey: payer.publicKey,
-        newAccountPubkey: mintAccount.publicKey,
+        newAccountPubkey: mintAccountPubkey,
         lamports: balanceNeeded,
         space: MintLayout.span,
         programId,
@@ -416,7 +414,7 @@ export class Token {
     transaction.add(
       Token.createInitMintInstruction(
         programId,
-        mintAccount.publicKey,
+        mintAccountPubkey,
         decimals,
         mintAuthority,
         freezeAuthority,
